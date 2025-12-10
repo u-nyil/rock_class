@@ -1,108 +1,40 @@
-# Normals Viewer
+# Rock Mass Point Cloud & Classification Tools
 
-Normals Viewer is a Python 3.12 toolkit that loads 3D point clouds, estimates and orients
-surface normals, clusters orientations using DBSCAN on the unit sphere, and visualises the
-results through an Open3D viewer or a PySide6 GUI.
+This repository collects small utilities for rock mass characterization from 3D point clouds and photogrammetry-derived data. The scripts cover normal estimation, discontinuity set clustering, spacing and roughness calculations, trace detection, and classic rock mass classifications (Q, RMR, RMi).
 
-## Features
+## Scripts
 
-- Load `.ply`, `.pcd`, `.xyz`, or text point clouds with optional normals.
-- Estimate PCA normals (k-NN or radius) and orient them toward +Z, a viewpoint, or a
-  consistent tangent plane.
-- Convert normals to stereographic quantities (dip, dip-direction, trend, plunge) in ENU
-  coordinates, enforcing lower-hemisphere poles.
-- DBSCAN clustering on orientation space using the angular antipodal-safe metric with
-  optional cone pruning.
-- Open3D visualisation with cluster colour maps, optional noise suppression, and normal
-  glyph overlays.
-- PySide6 desktop GUI plus Typer CLI for headless workflows.
-- CSV/JSON exports for labels, dip/dip-direction tables, and clustering summaries.
+- **`rock_class_inputs_gui.py`**  
+  Tkinter GUI to compute Q-system, RMR and RMi classifications. You enter basic field parameters and the app returns index values and corresponding rock mass classes.
 
-## Assumptions
+- **`normal_computation.py`**  
+  GUI tool for point cloud normal computation. Supports multiple file formats and methods (e.g. KNN PCA / robust methods), offers Open3D visualization, stereonet plots and export of normals/dip tables.
 
-- Coordinate system follows ENU: `x` = East, `y` = North, `z` = Up.
-- Normals are treated as unit vectors; poles are forced onto the lower hemisphere.
-- Angles are expressed in degrees; DBSCAN uses radians internally.
-- Dip/dip-direction conversions follow the formulas specified in the project brief.
+- **`rock_cluster.py`**  
+  Clusters pre-normalized point clouds into discontinuity sets using MeanShift or KMeans on normals, 2D DBSCAN on local coordinates, and RANSAC plane fitting. Exports planes/labels, includes a PyVista/Open3D viewer and optional stereonet plots.
 
-## Rationale
+- **`spacing_calculator.py`**  
+  Discontinuity spacing calculator. Reads RANSAC plane CSVs (e.g. from CloudCompare), builds simple rectangular planes, projects them onto a reference plane and computes spacing statistics; includes basic 3D plotting. Needs RANSAC planes .csv files from CloudCompare.
 
-- **DBSCAN on poles**: orientations are mapped to unit poles on the lower hemisphere,
-  providing a distance metric invariant to normal sign by using `arccos(|u·v|)`.
-  DBSCAN can detect an unknown number of structural families without prespecifying
-  cluster counts and is robust to noise/outliers.
-- **Cone pruning**: optional angular filtering around each cluster mean removes stray
-  members after clustering, sharpening families for stereonet analysis or mapping.
+- **`roughness_calculator_1.py`**  
+  Jr roughness calculator for a whole set of facets. Needs FACETS.csv file from CloudCompare. Reads a FACETS.csv, computes JRC/JRC20 from RMS and area using the Oppikofer formula, converts to Jr, prints statistics and saves plots and CSV summaries.
+
+- **`roughness_calculator_2.py`**  
+  Jr calculator with optional per-plane / per-spot analysis. Similar JRC/JRC20 → Jr workflow, but can group facets by RANSAC “spots” (orientation), outputting facet-level results and per-spot summaries plus histograms. Needs RANSAC and FACETS .csv files from CloudCompare.
+
+- **`trace_edge_1.py`**  
+  Edge-based point cloud splitter using curvature. Estimates normals and curvature from KNN neighborhoods, lets you interactively pick a curvature CDF threshold (with Open3D preview), and exports separate edge and non-edge PLY point clouds. 
+
+- **`trace_edge_2.py`**  
+  Fourier-based ridge/valley trace detection. Builds local PCA frames, computes curvature via truncated Fourier series along local profiles, selects ridge/valley points, smooths and thins them, then grows polylines and exports trace points/lines and diagnostics; optional 3D preview. The input is the edge_only .ply point clouds from trace_edge_1.py
 
 ## Installation
 
-Install the package in an isolated virtual environment on Windows 11 with Python 3.12.5.
-
-```powershell
-# 0) Confirm Python version
-python --version  # should be Python 3.12.5
-
-# 1) Create & activate venv
+```bash
 python -m venv .venv
-. .venv\Scripts\activate
+# Linux / macOS
+source .venv/bin/activate
+# Windows (PowerShell)
+# .venv\Scripts\Activate.ps1
 
-# 2) Install
-pip install -U pip
-pip install -e .
-
-# 3) Run GUI
-python -m normals_viewer
-
-# 4) Example CLI (view & cluster)
-normapp view --in .\data\sample.ply --show-normals on --every 20 --orient zup
-normapp cluster --in .\data\sample.ply --eps-orient 12 --min-samples 50 --cone 15 --view
-```
-
-> `open3d>=0.18` provides wheels for Python 3.12; ensure the platform has the matching
-> Visual C++ runtime installed.
-
-## Usage
-
-### GUI
-
-```powershell
-python -m normals_viewer
-```
-
-1. **Load** a point cloud (normals detected automatically).
-2. **Ensure normals** to compute and orient as required.
-3. **Run clustering** by setting DBSCAN parameters and reviewing summary statistics.
-4. **Open viewer** to inspect clusters or normal glyphs.
-5. **Export** labels, dip tables, and summaries for reporting.
-
-### CLI
-
-```powershell
-# View with normals coloured by RGB
-normapp view --in data\wall.ply --show-normals on --norm-scale 0.02 --every 10 --orient zup --color-mode normal
-
-# Orientation DBSCAN + export
-normapp cluster --in data\wall.ply --eps-orient 10 --min-samples 40 --cone 12 --view --out results\labels.csv --dip-out results\dip.csv --summary-out results\summary.json
-```
-
-## Testing
-
-```powershell
-pytest
-```
-
-The synthetic tests cover:
-
-1. Two distinct plane families clustered with mean poles within 3° of ground truth.
-2. Normal-to-pole conversion enforcing the lower hemisphere.
-3. Normal glyph generation producing the expected number of line segments.
-
-## Screenshots
-
-Add GUI or viewer screenshots here once captured:
-
-![GUI placeholder](docs/images/gui_placeholder.png)
-
-## License
-
-MIT
+pip install -r requirements.txt
